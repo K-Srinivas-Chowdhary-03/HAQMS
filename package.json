@@ -9,7 +9,9 @@
     "db:setup": "npm run db:setup --prefix backend",
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",
-    "dev": "npx concurrently \"npm run dev:backend\" \"npm run dev:frontend\""
+    "dev": "npx concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "npm install --prefix backend && npm run prisma:generate --prefix backend",
+    "start": "node backend/src/index.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

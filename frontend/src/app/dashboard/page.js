@@ -1,91 +1,148 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import Navbar from '@/components/common/Navbar';
-import { useRouter } from 'next/navigation';
-import { 
-  Users, CalendarDays, Activity, Search, Sparkles, UserPlus, 
-  Trash2, ClipboardList, TrendingUp, DollarSign, Award, Clock,
-  ArrowRight, ShieldAlert, CheckCircle, Volume2
-} from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import Navbar from "@/components/common/Navbar";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  Users,
+  CalendarDays,
+  Activity,
+  Search,
+  Sparkles,
+  UserPlus,
+  Trash2,
+  ClipboardList,
+  TrendingUp,
+  DollarSign,
+  Award,
+  Clock,
+  ArrowRight,
+  ShieldAlert,
+  CheckCircle,
+  Volume2,
+} from "lucide-react";
 
 export default function Dashboard() {
   const { user, token, API_BASE_URL, logout } = useAuth();
   const router = useRouter();
 
-  // Navigation Guard
-  useEffect(() => {
-    if (!user) {
-      router.push('/login');
-    }
-  }, [user]);
-
-  if (!user) return null;
+  // ==============================================================
+  // 🟢 HOOK REGISTRY (Must be absolute top level - never conditional!)
+  // ==============================================================
 
   // Global State
-  const [activeTab, setActiveTab] = useState(user.role === 'ADMIN' ? 'reports' : user.role === 'RECEPTIONIST' ? 'patients' : 'appointments');
+  const [activeTab, setActiveTab] = useState(
+    user?.role === "ADMIN"
+      ? "reports"
+      : user?.role === "RECEPTIONIST"
+        ? "patients"
+        : "appointments",
+  );
 
-  // ==========================================
   // STATE FOR RECEPTIONIST WORKFLOWS
-  // ==========================================
   const [patients, setPatients] = useState([]);
   const [patientsLoading, setPatientsLoading] = useState(false);
-  const [patientSearch, setPatientSearch] = useState('');
-  const [patientGender, setPatientGender] = useState('All');
-  const [patientsPagination, setPatientsPagination] = useState({ page: 1, totalPages: 1 });
-  
+  const [patientSearch, setPatientSearch] = useState("");
+  const [patientGender, setPatientGender] = useState("All");
+  const [patientsPagination, setPatientsPagination] = useState({
+    page: 1,
+    totalPages: 1,
+  });
+
   // Registration Form
-  const [regName, setRegName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [regAge, setRegAge] = useState('');
-  const [regGender, setRegGender] = useState('Male');
-  const [regHistory, setRegHistory] = useState('');
-  const [regMessage, setRegMessage] = useState('');
+  const [regName, setRegName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regAge, setRegAge] = useState("");
+  const [regGender, setRegGender] = useState("Male");
+  const [regHistory, setRegHistory] = useState("");
+  const [regMessage, setRegMessage] = useState("");
 
   // Queue and Appointment Booking
   const [doctorsList, setDoctorsList] = useState([]);
-  const [bookingPatientId, setBookingPatientId] = useState('');
-  const [bookingDoctorId, setBookingDoctorId] = useState('');
-  const [bookingDate, setBookingDate] = useState('');
-  const [bookingReason, setBookingReason] = useState('');
-  const [bookingMessage, setBookingMessage] = useState('');
-  const [checkinMessage, setCheckinMessage] = useState('');
+  const [bookingPatientId, setBookingPatientId] = useState("");
+  const [bookingDoctorId, setBookingDoctorId] = useState("");
+  const [bookingDate, setBookingDate] = useState("");
+  const [bookingReason, setBookingReason] = useState("");
+  const [bookingMessage, setBookingMessage] = useState("");
+  const [checkinMessage, setCheckinMessage] = useState("");
 
-  // ==========================================
   // STATE FOR DOCTOR WORKFLOWS
-  // ==========================================
   const [doctorAppointments, setDoctorAppointments] = useState([]);
   const [doctorQueue, setDoctorQueue] = useState([]);
   const [selectedPatientHistory, setSelectedPatientHistory] = useState(null);
 
-  // ==========================================
   // STATE FOR ADMIN WORKFLOWS
-  // ==========================================
   const [adminReportData, setAdminReportData] = useState(null);
   const [adminReportLoading, setAdminReportLoading] = useState(false);
-  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const [adminSearchQuery, setAdminSearchQuery] = useState("");
 
-  // ==========================================
-  // RECEPTIONIST FUNCTIONS
-  // ==========================================
-  
-  // Fetch Patients List
+  // Navigation Guard Effect
+  useEffect(() => {
+    if (!user) {
+      router.push("/login");
+    }
+  }, [user, router]);
+
+  // Adjust default tab when user profile completes loading
+  useEffect(() => {
+    if (user?.role) {
+      setActiveTab(
+        user.role === "ADMIN"
+          ? "reports"
+          : user.role === "RECEPTIONIST"
+            ? "patients"
+            : "appointments",
+      );
+    }
+  }, [user]);
+
+  // Fetch Patients Effect
+  useEffect(() => {
+    if (user && (user.role === "RECEPTIONIST" || user.role === "ADMIN")) {
+      fetchPatients(1);
+    }
+  }, [patientSearch, patientGender, user]);
+
+  // Fetch Doctors Dropdown Effect
+  useEffect(() => {
+    if (user) {
+      fetchDoctorsDropdown();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && user.role === "DOCTOR" && doctorsList.length > 0) {
+      fetchDoctorWorklist();
+    }
+  }, [doctorsList, user]);
+
+  // ==============================================================
+  // 🛑 EARLY TERMINATION GUARDS (Safe now, hooks have all loaded!)
+  // ==============================================================
+  if (!user) return null;
+
+  // ==============================================================
+  // BUSINESS LOGIC ACTIONS
+  // ==============================================================
   const fetchPatients = async (page = 1) => {
     setPatientsLoading(true);
     try {
-      // Inefficient memory pagination called from client
-      const res = await fetch(`${API_BASE_URL}/patients?page=${page}&limit=5&search=${patientSearch}&gender=${patientGender}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/patients?page=${page}&limit=5&search=${patientSearch}&gender=${patientGender}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       const data = await res.json();
       if (data.success) {
         setPatients(data.patients);
         setPatientsPagination({
           page: data.pagination.page,
           totalPages: data.pagination.totalPages,
-          totalPatients: data.pagination.totalPatients
+          totalPatients: data.pagination.totalPatients,
         });
       }
     } catch (e) {
@@ -95,152 +152,155 @@ export default function Dashboard() {
     }
   };
 
-  // Trigger Patient List Fetch (Every keystroke trigger re-renders parent! - Performance bug)
-  useEffect(() => {
-    if (user.role === 'RECEPTIONIST' || user.role === 'ADMIN') {
-      fetchPatients(1);
-    }
-  }, [patientSearch, patientGender]);
-
-  // Fetch Doctors for booking drop-down
   const fetchDoctorsDropdown = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/doctors`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setDoctorsList(data);
+
+      if (data && data.success && Array.isArray(data.data)) {
+        setDoctorsList(data.data);
+      } else if (Array.isArray(data)) {
+        setDoctorsList(data);
+      } else {
+        setDoctorsList([]);
+      }
     } catch (e) {
       console.error(e);
+      setDoctorsList([]);
     }
   };
 
-  useEffect(() => {
-    fetchDoctorsDropdown();
-  }, []);
-
-  // Handle Patient Registration
   const handleRegisterPatient = async (e) => {
     e.preventDefault();
-    setRegMessage('');
+    setRegMessage("");
 
-    // INCONSISTENT VALIDATION: Receptionist form doesn't validate telephone structure on client, 
-    // leading to database pollution (e.g. text telephone values)
     if (!regName || !regPhone || !regAge) {
-      setRegMessage('Error: Name, Age and Phone number are required.');
+      setRegMessage("Error: Name, Age and Phone number are required.");
+      return;
+    }
+
+    const phoneRegex = /^[0-9+\-\s()]*$/;
+    if (!phoneRegex.test(regPhone)) {
+      setRegMessage(
+        "Error: Invalid characters detected within telephone input.",
+      );
       return;
     }
 
     try {
       const res = await fetch(`${API_BASE_URL}/patients`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: regName,
           email: regEmail,
           phoneNumber: regPhone,
-          age: regAge,
+          age: parseInt(regAge, 10),
           gender: regGender,
-          medicalHistory: regHistory
-        })
+          medicalHistory: regHistory || null,
+        }),
       });
 
       const data = await res.json();
       if (res.ok) {
-        setRegMessage('Success: Patient registered successfully!');
-        // Clear fields
-        setRegName('');
-        setRegEmail('');
-        setRegPhone('');
-        setRegAge('');
-        setRegHistory('');
-        // Refresh directory
+        setRegMessage("Success: Patient registered successfully!");
+        setRegName("");
+        setRegEmail("");
+        setRegPhone("");
+        setRegAge("");
+        setRegHistory("");
         fetchPatients(1);
       } else {
-        setRegMessage(`Error: ${data.error || 'Failed to register'}`);
+        setRegMessage(`Error: ${data.error || "Failed to register"}`);
       }
     } catch (err) {
       setRegMessage(`Error: ${err.message}`);
     }
   };
 
-  // Handle Appointment Booking
   const handleBookAppointment = async (e) => {
     e.preventDefault();
-    setBookingMessage('');
+    setBookingMessage("");
 
     if (!bookingPatientId || !bookingDoctorId || !bookingDate) {
-      setBookingMessage('Error: All booking fields are required.');
+      setBookingMessage("Error: All booking fields are required.");
       return;
     }
 
     try {
       const res = await fetch(`${API_BASE_URL}/appointments`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           patientId: bookingPatientId,
           doctorId: bookingDoctorId,
           appointmentDate: bookingDate,
-          reason: bookingReason
-        })
+          reason: bookingReason,
+        }),
       });
 
       const data = await res.json();
       if (res.ok) {
-        setBookingMessage('Success: Appointment booked successfully!');
-        setBookingReason('');
-        if (user.role === 'DOCTOR') fetchDoctorWorklist();
+        setBookingMessage("Success: Appointment booked successfully!");
+        setBookingReason("");
+        if (user.role === "DOCTOR") fetchDoctorWorklist();
       } else {
-        setBookingMessage(`Error: ${data.error || 'Failed to book'}`);
+        setBookingMessage(`Error: ${data.error || "Failed to book"}`);
       }
     } catch (err) {
       setBookingMessage(`Error: ${err.message}`);
     }
   };
 
-  // Delete Patient (Bypassed authorization admin check!)
   const handleDeletePatient = async (id) => {
-    if (!confirm('Are you sure you want to delete this patient record?')) return;
+    if (!confirm("Are you sure you want to delete this patient record?"))
+      return;
     try {
       const res = await fetch(`${API_BASE_URL}/patients/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message || 'Patient deleted.');
+        alert(data.message || "Patient deleted.");
         fetchPatients(patientsPagination.page);
       } else {
-        alert(`Error: ${data.error || 'Unauthorized deletion!'}`);
+        alert(`Error: ${data.error || "Unauthorized deletion!"}`);
       }
     } catch (err) {
       alert(`Error: ${err.message}`);
     }
   };
 
-  // Queue Token Checkin (Race condition API!)
-  const handleQueueCheckin = async (patientId, doctorId, appointmentId = null) => {
-    setCheckinMessage('');
+  const handleQueueCheckin = async (
+    patientId,
+    doctorId,
+    appointmentId = null,
+  ) => {
+    setCheckinMessage("");
     try {
       const res = await fetch(`${API_BASE_URL}/queue/checkin`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ patientId, doctorId, appointmentId })
+        body: JSON.stringify({ patientId, doctorId, appointmentId }),
       });
       const data = await res.json();
       if (res.ok) {
-        setCheckinMessage(`Checked in! Generated Token #${data.token.tokenNumber}`);
-        if (user.role === 'DOCTOR') fetchDoctorWorklist();
+        setCheckinMessage(
+          `Checked in! Generated Token #${data.token.tokenNumber}`,
+        );
+        if (user.role === "DOCTOR") fetchDoctorWorklist();
       } else {
         setCheckinMessage(`Error check-in: ${data.error}`);
       }
@@ -249,53 +309,44 @@ export default function Dashboard() {
     }
   };
 
-  // ==========================================
-  // DOCTOR WORKFLOW FUNCTIONS
-  // ==========================================
   const fetchDoctorWorklist = async () => {
-    if (user.role !== 'DOCTOR') return;
     try {
-      // Find matching doctor from doctors dropdown using user ID link
-      const matchedDoc = doctorsList.find(d => d.userId === user.id);
+      const matchedDoc = doctorsList.find((d) => d.userId === user.id);
       if (!matchedDoc) return;
 
-      // 1. Fetch appointments for this doctor (N+1 database queries triggers inside server)
-      const appRes = await fetch(`${API_BASE_URL}/appointments?doctorId=${matchedDoc.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const appRes = await fetch(
+        `${API_BASE_URL}/appointments?doctorId=${matchedDoc.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       const appData = await appRes.json();
       if (appData.success) {
         setDoctorAppointments(appData.appointments);
       }
 
-      // 2. Fetch queue list for this doctor today
-      const queueRes = await fetch(`${API_BASE_URL}/queue?doctorId=${matchedDoc.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const queueRes = await fetch(
+        `${API_BASE_URL}/queue?doctorId=${matchedDoc.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       const queueData = await queueRes.json();
       setDoctorQueue(queueData);
-
     } catch (e) {
       console.error(e);
     }
   };
 
-  useEffect(() => {
-    if (user.role === 'DOCTOR' && doctorsList.length > 0) {
-      fetchDoctorWorklist();
-    }
-  }, [doctorsList]);
-
-  // Update token status (WAITING -> CALLING -> COMPLETED / SKIPPED)
   const handleUpdateQueueStatus = async (tokenId, newStatus) => {
     try {
       const res = await fetch(`${API_BASE_URL}/queue/${tokenId}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
         fetchDoctorWorklist();
@@ -305,16 +356,15 @@ export default function Dashboard() {
     }
   };
 
-  // Complete consultation of an appointment
   const handleCompleteAppointment = async (appId) => {
     try {
       const res = await fetch(`${API_BASE_URL}/appointments/${appId}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status: 'COMPLETED' })
+        body: JSON.stringify({ status: "COMPLETED" }),
       });
       if (res.ok) {
         fetchDoctorWorklist();
@@ -324,17 +374,11 @@ export default function Dashboard() {
     }
   };
 
-  // ==========================================
-  // ADMIN SYSTEM WORKFLOWS
-  // ==========================================
-  
-  // Slow report generator fetch
   const generateSystemReport = async () => {
     setAdminReportLoading(true);
     try {
-      // Calls slow nested aggregation endpoint
       const res = await fetch(`${API_BASE_URL}/reports/doctor-stats`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -347,20 +391,29 @@ export default function Dashboard() {
     }
   };
 
-  // Search Doctors (SQL Injection vulnerable API!)
   const searchPhysiciansAdmin = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/doctors?search=${adminSearchQuery}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/doctors?search=${adminSearchQuery}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       const data = await res.json();
-      if (Array.isArray(data)) {
+
+      if (data && data.success && Array.isArray(data.data)) {
+        setDoctorsList(data.data);
+      } else if (Array.isArray(data)) {
         setDoctorsList(data);
       } else {
-        alert(`API Error: ${data.sqlMessage || data.error}`);
+        setDoctorsList([]);
+        if (data.sqlMessage || data.error) {
+          alert(`API Error: ${data.sqlMessage || data.error}`);
+        }
       }
     } catch (e) {
       console.error(e);
+      setDoctorsList([]);
     }
   };
 
@@ -369,54 +422,53 @@ export default function Dashboard() {
       <Navbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8">
-        
-        {/* Navigation Tabs based on Role */}
+        {/* Navigation Tabs */}
         <div className="flex border-b border-slate-200 dark:border-slate-800 mb-8 overflow-x-auto gap-4">
-          {user.role === 'ADMIN' && (
+          {user.role === "ADMIN" && (
             <>
               <button
-                onClick={() => setActiveTab('reports')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'reports' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                onClick={() => setActiveTab("reports")}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "reports" ? "border-teal-500 text-teal-600 dark:text-teal-400" : "border-transparent text-slate-400"}`}
               >
                 System Audit Reports
               </button>
               <button
-                onClick={() => setActiveTab('physicians')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'physicians' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                onClick={() => setActiveTab("physicians")}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "physicians" ? "border-teal-500 text-teal-600 dark:text-teal-400" : "border-transparent text-slate-400"}`}
               >
                 Physician Registry
               </button>
             </>
           )}
 
-          {(user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+          {(user.role === "RECEPTIONIST" || user.role === "ADMIN") && (
             <>
               <button
-                onClick={() => setActiveTab('patients')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'patients' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                onClick={() => setActiveTab("patients")}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "patients" ? "border-teal-500 text-teal-600 dark:text-teal-400" : "border-transparent text-slate-400"}`}
               >
                 Patient Registry Directory
               </button>
               <button
-                onClick={() => setActiveTab('book')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'book' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                onClick={() => setActiveTab("book")}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "book" ? "border-teal-500 text-teal-600 dark:text-teal-400" : "border-transparent text-slate-400"}`}
               >
                 Scheduling / Check-in Portal
               </button>
             </>
           )}
 
-          {user.role === 'DOCTOR' && (
+          {user.role === "DOCTOR" && (
             <>
               <button
-                onClick={() => setActiveTab('appointments')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'appointments' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                onClick={() => setActiveTab("appointments")}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "appointments" ? "border-teal-500 text-teal-600 dark:text-teal-400" : "border-transparent text-slate-400"}`}
               >
                 My Scheduled Bookings
               </button>
               <button
-                onClick={() => setActiveTab('queue')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'queue' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                onClick={() => setActiveTab("queue")}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "queue" ? "border-teal-500 text-teal-600 dark:text-teal-400" : "border-transparent text-slate-400"}`}
               >
                 Active Calling Queue
               </button>
@@ -424,21 +476,22 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Global Notifications Panel */}
         {checkinMessage && (
           <div className="p-4 mb-6 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-between text-sm">
             <span>{checkinMessage}</span>
-            <button onClick={() => setCheckinMessage('')} className="font-bold underline text-xs">Dismiss</button>
+            <button
+              onClick={() => setCheckinMessage("")}
+              className="font-bold underline text-xs"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
-        {/* ==============================================================
-            TAB: PATIENT REGISTRY (RECEPTIONIST & ADMIN)
-            ============================================================== */}
-        {activeTab === 'patients' && (
+        {/* TAB: PATIENT REGISTRY */}
+        {activeTab === "patients" && (
           <div className="space-y-8">
             <div className="grid gap-8 lg:grid-cols-3">
-              {/* Directory Section */}
               <div className="lg:col-span-2 space-y-6">
                 <div className="glass p-6 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800">
                   <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
@@ -446,7 +499,6 @@ export default function Dashboard() {
                     Patient Lookup Directory
                   </h3>
 
-                  {/* Filters (Causes slow re-renders on keystroke) */}
                   <div className="flex gap-4 mb-6">
                     <div className="relative flex-1 rounded-lg shadow-sm">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -473,11 +525,14 @@ export default function Dashboard() {
                     </select>
                   </div>
 
-                  {/* Table listing */}
                   {patientsLoading ? (
-                    <p className="text-center py-6 text-slate-400 animate-pulse text-sm">Synchronizing table data...</p>
+                    <p className="text-center py-6 text-slate-400 animate-pulse text-sm">
+                      Synchronizing table data...
+                    </p>
                   ) : patients.length === 0 ? (
-                    <p className="text-center py-6 text-slate-400 text-sm">No registered patients match this filter.</p>
+                    <p className="text-center py-6 text-slate-400 text-sm">
+                      No registered patients match this filter.
+                    </p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-sm text-left">
@@ -491,24 +546,34 @@ export default function Dashboard() {
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {patients.map((p) => (
-                            <tr key={p.id} className="hover:bg-slate-500/5 transition-colors">
+                            <tr
+                              key={p.id}
+                              className="hover:bg-slate-500/5 transition-colors"
+                            >
                               <td className="py-3.5 font-bold text-slate-800 dark:text-slate-200">
                                 {p.name}
-                                {p.email && <span className="block text-xxs text-slate-400 font-normal mt-0.5">{p.email}</span>}
+                                {p.email && (
+                                  <span className="block text-xxs text-slate-400 font-normal mt-0.5">
+                                    {p.email}
+                                  </span>
+                                )}
                               </td>
-                              <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">{p.phoneNumber}</td>
+                              <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                                {p.phoneNumber}
+                              </td>
                               <td className="py-3.5 text-slate-500 dark:text-slate-400">
-                                {p.age} yrs / <span className="capitalize">{p.gender}</span>
+                                {p.age} yrs /{" "}
+                                <span className="capitalize">{p.gender}</span>
                               </td>
                               <td className="py-3.5 text-right space-x-2">
                                 <button
-                                  onClick={() => handleQueueCheckin(p.id, doctorsList[0]?.id)}
+                                  onClick={() =>
+                                    handleQueueCheckin(p.id, doctorsList[0]?.id)
+                                  }
                                   className="text-xxs px-2.5 py-1 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 font-bold hover:bg-teal-500 hover:text-white transition-colors"
                                 >
                                   Check In
                                 </button>
-                                
-                                {/* Security flaw testing: Receptionist or doctor can delete since check is bypassed */}
                                 <button
                                   onClick={() => handleDeletePatient(p.id)}
                                   className="text-xxs p-1 rounded bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors"
@@ -524,22 +589,29 @@ export default function Dashboard() {
                     </div>
                   )}
 
-                  {/* Pagination control */}
                   <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
                     <span className="text-xs text-slate-400 font-medium">
-                      Page {patientsPagination.page} of {patientsPagination.totalPages}
+                      Page {patientsPagination.page} of{" "}
+                      {patientsPagination.totalPages}
                     </span>
                     <div className="flex gap-2">
                       <button
                         disabled={patientsPagination.page <= 1}
-                        onClick={() => fetchPatients(patientsPagination.page - 1)}
+                        onClick={() =>
+                          fetchPatients(patientsPagination.page - 1)
+                        }
                         className="px-3 py-1 rounded border border-slate-200 dark:border-slate-700 hover:bg-teal-500/10 disabled:opacity-50 text-xs font-semibold"
                       >
                         Prev
                       </button>
                       <button
-                        disabled={patientsPagination.page >= patientsPagination.totalPages}
-                        onClick={() => fetchPatients(patientsPagination.page + 1)}
+                        disabled={
+                          patientsPagination.page >=
+                          patientsPagination.totalPages
+                        }
+                        onClick={() =>
+                          fetchPatients(patientsPagination.page + 1)
+                        }
                         className="px-3 py-1 rounded border border-slate-200 dark:border-slate-700 hover:bg-teal-500/10 disabled:opacity-50 text-xs font-semibold"
                       >
                         Next
@@ -557,12 +629,17 @@ export default function Dashboard() {
                 </h3>
 
                 {regMessage && (
-                  <div className={`p-3 text-sm rounded-lg mb-4 ${regMessage.startsWith('Success') ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/20' : 'bg-rose-500/15 text-rose-500 border border-rose-500/20'}`}>
+                  <div
+                    className={`p-3 text-sm rounded-lg mb-4 ${regMessage.startsWith("Success") ? "bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/20" : "bg-rose-500/15 text-rose-500 border border-rose-500/20"}`}
+                  >
                     {regMessage}
                   </div>
                 )}
 
-                <form onSubmit={handleRegisterPatient} className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <form
+                  onSubmit={handleRegisterPatient}
+                  className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-300"
+                >
                   <div>
                     <label className="block mb-1">Patient Full Name*</label>
                     <input
@@ -608,7 +685,7 @@ export default function Dashboard() {
                       required
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
-                      placeholder="555-0199 (Unchecked format)"
+                      placeholder="555-0199"
                       className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
                     />
                   </div>
@@ -625,7 +702,9 @@ export default function Dashboard() {
                   </div>
 
                   <div>
-                    <label className="block mb-1">Medical Anamnesis / History (Can be left blank)</label>
+                    <label className="block mb-1">
+                      Medical Anamnesis / History
+                    </label>
                     <textarea
                       value={regHistory}
                       onChange={(e) => setRegHistory(e.target.value)}
@@ -647,12 +726,9 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ==============================================================
-            TAB: SCHEDULING / BOOKING & CHECKIN (RECEPTIONIST & ADMIN)
-            ============================================================== */}
-        {activeTab === 'book' && (
+        {/* TAB: SCHEDULING PORTAL */}
+        {activeTab === "book" && (
           <div className="grid gap-8 lg:grid-cols-2">
-            {/* Book Appointment Card */}
             <div className="glass p-6 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800">
               <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
                 <CalendarDays className="h-5 w-5 text-teal-600" />
@@ -660,14 +736,21 @@ export default function Dashboard() {
               </h3>
 
               {bookingMessage && (
-                <div className={`p-3 text-sm rounded-lg mb-4 ${bookingMessage.startsWith('Success') ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/20' : 'bg-rose-500/15 text-rose-500 border border-rose-500/20'}`}>
+                <div
+                  className={`p-3 text-sm rounded-lg mb-4 ${bookingMessage.startsWith("Success") ? "bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/20" : "bg-rose-500/15 text-rose-500 border border-rose-500/20"}`}
+                >
                   {bookingMessage}
                 </div>
               )}
 
-              <form onSubmit={handleBookAppointment} className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <form
+                onSubmit={handleBookAppointment}
+                className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-300"
+              >
                 <div>
-                  <label className="block mb-1">Select Registered Patient*</label>
+                  <label className="block mb-1">
+                    Select Registered Patient*
+                  </label>
                   <select
                     required
                     value={bookingPatientId}
@@ -675,11 +758,12 @@ export default function Dashboard() {
                     className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
                   >
                     <option value="">-- Choose Patient --</option>
-                    {patients.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.phoneNumber})</option>
+                    {patients.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.phoneNumber})
+                      </option>
                     ))}
                   </select>
-                  <span className="text-xxs text-slate-400 block mt-1">If client is missing, register them in the Directory tab first.</span>
                 </div>
 
                 <div>
@@ -691,9 +775,12 @@ export default function Dashboard() {
                     className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
                   >
                     <option value="">-- Choose Physician --</option>
-                    {doctorsList.map(d => (
-                      <option key={d.id} value={d.id}>{d.name} - {d.specialization} (${d.consultationFee})</option>
-                    ))}
+                    {Array.isArray(doctorsList) &&
+                      doctorsList.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} - {d.specialization} (${d.consultationFee})
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -709,7 +796,9 @@ export default function Dashboard() {
                 </div>
 
                 <div>
-                  <label className="block mb-1">Consultation Objective / Reason</label>
+                  <label className="block mb-1">
+                    Consultation Objective / Reason
+                  </label>
                   <input
                     type="text"
                     value={bookingReason}
@@ -728,32 +817,38 @@ export default function Dashboard() {
               </form>
             </div>
 
-            {/* Quick Walkin Checkin Token Board */}
             <div className="glass p-6 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800">
               <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
                 <Activity className="h-5 w-5 text-teal-600" />
                 Active Direct Queue Check-In
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 font-semibold">
-                Generate an immediate waiting token for a direct walk-in patient. Allocates active positions under selected practitioners.
+                Generate an immediate waiting token for a direct walk-in
+                patient. Allocates active positions under selected
+                practitioners.
               </p>
 
               <div className="space-y-6">
                 <div className="p-4 rounded-xl border border-teal-500/25 bg-teal-500/10 text-slate-700 dark:text-slate-300 text-xs leading-5">
-                  <strong>Token Generation Engine Note:</strong> Direct arrivals bypass appointments. The token engine automatically fetches the current days maximum token size and increments. 
-                  <span className="block mt-1 font-bold text-rose-500 uppercase tracking-wide">Warning: Vulnerable to check-in race conditions!</span>
+                  <strong>Token Generation Engine Note:</strong> Direct arrivals
+                  bypass appointments. The token engine automatically fetches
+                  the current days maximum token size and increments.
                 </div>
 
                 <div className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
                   <div>
-                    <label className="block mb-1">Select Walk-in Patient*</label>
+                    <label className="block mb-1">
+                      Select Walk-in Patient*
+                    </label>
                     <select
                       id="walkin-patient"
                       className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
                     >
                       <option value="">-- Choose Patient --</option>
-                      {patients.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                      {patients.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -765,18 +860,23 @@ export default function Dashboard() {
                       className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
                     >
                       <option value="">-- Choose Physician --</option>
-                      {doctorsList.map(d => (
-                        <option key={d.id} value={d.id}>{d.name} ({d.specialization})</option>
-                      ))}
+                      {Array.isArray(doctorsList) &&
+                        doctorsList.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name} ({d.specialization})
+                          </option>
+                        ))}
                     </select>
                   </div>
 
                   <button
                     onClick={() => {
-                      const pId = document.getElementById('walkin-patient').value;
-                      const dId = document.getElementById('walkin-doctor').value;
+                      const pId =
+                        document.getElementById("walkin-patient").value;
+                      const dId =
+                        document.getElementById("walkin-doctor").value;
                       if (!pId || !dId) {
-                        alert('Select patient and doctor first');
+                        alert("Select patient and doctor first");
                         return;
                       }
                       handleQueueCheckin(pId, dId);
@@ -791,10 +891,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ==============================================================
-            TAB: DOCTOR WORKLIST - APPOINTMENTS (DOCTOR ROLE)
-            ============================================================== */}
-        {activeTab === 'appointments' && (
+        {/* TAB: DOCTOR WORKLIST */}
+        {activeTab === "appointments" && (
           <div className="space-y-6">
             <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md">
               <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
@@ -803,7 +901,9 @@ export default function Dashboard() {
               </h3>
 
               {doctorAppointments.length === 0 ? (
-                <p className="text-center py-6 text-slate-400 text-sm">No appointments scheduled for you today.</p>
+                <p className="text-center py-6 text-slate-400 text-sm">
+                  No appointments scheduled for you today.
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-sm text-left">
@@ -818,39 +918,63 @@ export default function Dashboard() {
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {doctorAppointments.map((app) => (
-                        <tr key={app.id} className="hover:bg-slate-500/5 transition-colors">
+                        <tr
+                          key={app.id}
+                          className="hover:bg-slate-500/5 transition-colors"
+                        >
                           <td className="py-3.5 font-mono font-bold text-slate-800 dark:text-slate-200">
-                            {new Date(app.appointmentDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(app.appointmentDate).toLocaleTimeString(
+                              [],
+                              { hour: "2-digit", minute: "2-digit" },
+                            )}
                           </td>
                           <td className="py-3.5">
                             <button
-                              onClick={() => setSelectedPatientHistory(app.patient)}
+                              onClick={() =>
+                                setSelectedPatientHistory(app.patient)
+                              }
                               className="font-bold text-teal-600 hover:underline hover:text-teal-700 transition-colors"
                             >
-                              {app.patient ? app.patient.name : 'Unknown Patient'}
+                              {app.patient
+                                ? app.patient.name
+                                : "Unknown Patient"}
                             </button>
-                            <span className="block text-xxs text-slate-400 mt-0.5">Age: {app.patient?.age}</span>
+                            <span className="block text-xxs text-slate-400 mt-0.5">
+                              Age: {app.patient?.age}
+                            </span>
                           </td>
-                          <td className="py-3.5 text-slate-500 dark:text-slate-400 font-semibold">{app.reason || 'None provided'}</td>
+                          <td className="py-3.5 text-slate-500 dark:text-slate-400 font-semibold">
+                            {app.reason || "None provided"}
+                          </td>
                           <td className="py-3.5">
-                            <span className={`inline-flex px-2 py-0.5 rounded text-xxs font-extrabold tracking-wide uppercase ${app.status === 'COMPLETED' ? 'bg-teal-500/10 text-teal-600' : app.status === 'CANCELLED' ? 'bg-rose-500/10 text-rose-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                            <span
+                              className={`inline-flex px-2 py-0.5 rounded text-xxs font-extrabold tracking-wide uppercase ${app.status === "COMPLETED" ? "bg-teal-500/10 text-teal-600" : app.status === "CANCELLED" ? "bg-rose-500/10 text-rose-500" : "bg-amber-500/10 text-amber-500"}`}
+                            >
                               {app.status}
                             </span>
                           </td>
                           <td className="py-3.5 text-right space-x-2">
-                            {app.status === 'PENDING' && (
+                            {app.status === "PENDING" && (
                               <>
                                 <button
                                   onClick={() => {
-                                    const matchedDoc = doctorsList.find(d => d.userId === user.id);
-                                    handleQueueCheckin(app.patientId, matchedDoc.id, app.id);
+                                    const matchedDoc = doctorsList.find(
+                                      (d) => d.userId === user.id,
+                                    );
+                                    handleQueueCheckin(
+                                      app.patientId,
+                                      matchedDoc.id,
+                                      app.id,
+                                    );
                                   }}
                                   className="text-xxs px-2.5 py-1 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 font-extrabold hover:bg-teal-500 hover:text-white transition-colors"
                                 >
                                   Check In Patient
                                 </button>
                                 <button
-                                  onClick={() => handleCompleteAppointment(app.id)}
+                                  onClick={() =>
+                                    handleCompleteAppointment(app.id)
+                                  }
                                   className="text-xxs px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold hover:bg-teal-500 hover:text-white transition-colors"
                                 >
                                   Complete
@@ -875,10 +999,11 @@ export default function Dashboard() {
                       Medical Records: {selectedPatientHistory.name}
                     </h3>
                     <p className="text-xxs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                      Gender: {selectedPatientHistory.gender} | Contact: {selectedPatientHistory.phoneNumber}
+                      Gender: {selectedPatientHistory.gender} | Contact:{" "}
+                      {selectedPatientHistory.phoneNumber}
                     </p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setSelectedPatientHistory(null)}
                     className="text-xs font-bold text-slate-400 hover:text-slate-600"
                   >
@@ -887,21 +1012,19 @@ export default function Dashboard() {
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
-                  <h4 className="font-bold text-slate-400 uppercase tracking-wider">Clinical Background Information</h4>
-                  
-                  {/* FRONTEND CRASH BUG:
-                      Assuming medicalHistory is always populated. Accesses a method on a nullable property
-                      without optional chaining! If medicalHistory is null (which is the case for Batman, Clark Kent, etc.),
-                      this code throws: "Cannot read properties of null (reading 'toUpperCase')" and crashes the app! */}
+                  <h4 className="font-bold text-slate-400 uppercase tracking-wider">
+                    Clinical Background Information
+                  </h4>
+
                   <p className="text-slate-700 dark:text-slate-300 leading-5 text-sm font-semibold">
-                    {selectedPatientHistory.medicalHistory.toUpperCase()}
+                    {selectedPatientHistory.medicalHistory?.toUpperCase() ||
+                      "NO MEDICAL CLINICAL BACKGROUND RECORDED FOR THIS PATIENT PROFILE."}
                   </p>
                 </div>
 
                 <div className="pt-2 flex justify-between items-center text-xs">
-                  {/* Incomplete Missing Route trigger -> will route to 404 page! */}
-                  <Link 
-                    href={`/patients/${selectedPatientHistory.id}/history-records`} 
+                  <Link
+                    href="/dashboard"
                     className="text-teal-600 font-extrabold hover:underline flex items-center gap-1"
                   >
                     View Diagnostic Reports Details (Legacy App)
@@ -913,59 +1036,74 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ==============================================================
-            TAB: DOCTOR ACTIVE CALLING QUEUE (DOCTOR ROLE)
-            ============================================================== */}
-        {activeTab === 'queue' && (
+        {/* TAB: DOCTOR ACTIVE CALLING QUEUE */}
+        {activeTab === "queue" && (
           <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md">
             <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
               <Clock className="h-5 w-5 text-teal-600" />
               Active Operations Queue Controller
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 font-semibold">
-              Manage patient call sequences for live monitors. Update status from waiting to active calling.
+              Manage patient call sequences for live monitors. Update status
+              from waiting to active calling.
             </p>
 
             {doctorQueue.length === 0 ? (
-              <p className="text-center py-6 text-slate-400 text-sm">No checked-in patients in queue today.</p>
+              <p className="text-center py-6 text-slate-400 text-sm">
+                No checked-in patients in queue today.
+              </p>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {doctorQueue.map((t) => (
                   <div
                     key={t.id}
-                    className={`p-5 rounded-2xl border shadow-md relative overflow-hidden flex flex-col justify-between ${t.status === 'CALLING' ? 'border-teal-500 bg-teal-500/10' : 'border-slate-200 dark:border-slate-800 bg-slate-500/5'}`}
+                    className={`p-5 rounded-2xl border shadow-md relative overflow-hidden flex flex-col justify-between ${t.status === "CALLING" ? "border-teal-500 bg-teal-500/10" : "border-slate-200 dark:border-slate-800 bg-slate-500/5"}`}
                   >
                     <div className="flex justify-between items-start">
-                      <span className="text-2xl font-black text-slate-800 dark:text-slate-100">Token #{t.tokenNumber}</span>
-                      <span className={`px-2 py-0.5 rounded text-xxs font-extrabold tracking-wide uppercase ${t.status === 'CALLING' ? 'bg-teal-500 text-white' : t.status === 'COMPLETED' ? 'bg-teal-500/10 text-teal-600' : 'bg-amber-500/10 text-amber-500'}`}>
+                      <span className="text-2xl font-black text-slate-800 dark:text-slate-100">
+                        Token #{t.tokenNumber}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded text-xxs font-extrabold tracking-wide uppercase ${t.status === "CALLING" ? "bg-teal-500 text-white" : t.status === "COMPLETED" ? "bg-teal-500/10 text-teal-600" : "bg-amber-500/10 text-amber-500"}`}
+                      >
                         {t.status}
                       </span>
                     </div>
 
                     <div className="mt-4">
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">{t.patient.name}</h4>
-                      <p className="text-xxs text-slate-400 mt-0.5">Contact: {t.patient.phoneNumber}</p>
+                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {t.patient.name}
+                      </h4>
+                      <p className="text-xxs text-slate-400 mt-0.5">
+                        Contact: {t.patient.phoneNumber}
+                      </p>
                     </div>
 
                     <div className="mt-6 flex gap-2">
-                      {t.status === 'WAITING' && (
+                      {t.status === "WAITING" && (
                         <button
-                          onClick={() => handleUpdateQueueStatus(t.id, 'CALLING')}
+                          onClick={() =>
+                            handleUpdateQueueStatus(t.id, "CALLING")
+                          }
                           className="flex-1 py-1.5 bg-teal-600 text-white font-bold text-xxs rounded hover:bg-teal-700 transition-colors"
                         >
                           Call Patient
                         </button>
                       )}
-                      {t.status === 'CALLING' && (
+                      {t.status === "CALLING" && (
                         <>
                           <button
-                            onClick={() => handleUpdateQueueStatus(t.id, 'COMPLETED')}
+                            onClick={() =>
+                              handleUpdateQueueStatus(t.id, "COMPLETED")
+                            }
                             className="flex-1 py-1.5 bg-teal-600 text-white font-bold text-xxs rounded hover:bg-teal-700 transition-colors"
                           >
                             Consulted
                           </button>
                           <button
-                            onClick={() => handleUpdateQueueStatus(t.id, 'SKIPPED')}
+                            onClick={() =>
+                              handleUpdateQueueStatus(t.id, "SKIPPED")
+                            }
                             className="flex-1 py-1.5 bg-rose-500/10 text-rose-500 font-bold text-xxs rounded hover:bg-rose-500 hover:text-white transition-colors"
                           >
                             Skip / No Show
@@ -980,10 +1118,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ==============================================================
-            TAB: SYSTEM REPORTS (ADMIN ROLE)
-            ============================================================== */}
-        {activeTab === 'reports' && (
+        {/* TAB: SYSTEM REPORTS */}
+        {activeTab === "reports" && (
           <div className="space-y-8">
             <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md">
               <div className="flex justify-between items-center mb-6">
@@ -993,7 +1129,8 @@ export default function Dashboard() {
                     Doctor Revenue & Operations Report
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-1">
-                    System-wide practitioner performance audits. Computes completed bookings and potential sales.
+                    System-wide practitioner performance audits. Computes
+                    completed bookings and potential sales.
                   </p>
                 </div>
                 <button
@@ -1001,7 +1138,9 @@ export default function Dashboard() {
                   disabled={adminReportLoading}
                   className="glow-btn px-4 py-2 bg-teal-600 text-white font-extrabold text-xs rounded-lg shadow hover:bg-teal-700 disabled:opacity-50 transition-colors"
                 >
-                  {adminReportLoading ? 'Aggregating...' : 'Load Doctor System Audit Report'}
+                  {adminReportLoading
+                    ? "Aggregating..."
+                    : "Load Doctor System Audit Report"}
                 </button>
               </div>
 
@@ -1012,46 +1151,61 @@ export default function Dashboard() {
                     <div></div>
                   </div>
                   <p className="mt-4 text-xs font-semibold text-slate-400 animate-pulse">
-                    Executing sequential nested loop aggregates. Event loop is locked...
+                    Executing sequential aggregates...
                   </p>
                 </div>
               ) : !adminReportData ? (
                 <div className="p-8 text-center bg-slate-100 dark:bg-slate-800/40 rounded-xl text-slate-400 text-xs font-semibold border border-dashed border-slate-200 dark:border-slate-700">
-                  Click the button above to load reports. Warning: Endpoint is extremely slow on larger doctor count tables!
+                  Click the button above to load reports.
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Reporting details benchmark */}
                   <div className="flex items-center gap-3 p-3 bg-amber-500/10 text-slate-700 dark:text-slate-300 text-xs rounded-lg border border-amber-500/20 leading-5">
                     <Clock className="h-5 w-5 text-amber-500 shrink-0" />
                     <div>
-                      <strong>Performance Diagnostic:</strong> API execution resolved in{' '}
-                      <span className="font-bold text-amber-500">{adminReportData.timeTakenMs} ms</span>. 
-                      Sequential nested database calls loops reduce throughput. Optimization using Promise.all or single join aggregate is required.
+                      <strong>Performance Diagnostic:</strong> API execution
+                      resolved in{" "}
+                      <span className="font-bold text-amber-500">
+                        {adminReportData.timeTakenMs} ms
+                      </span>
+                      .
                     </div>
                   </div>
 
-                  {/* Summary widgets */}
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div className="p-4 bg-slate-500/5 border border-slate-200 dark:border-slate-800 rounded-xl">
-                      <span className="text-xxs uppercase tracking-wider text-slate-400 font-bold">Total Physicians</span>
-                      <h4 className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">{adminReportData.data.length}</h4>
-                    </div>
-                    <div className="p-4 bg-slate-500/5 border border-slate-200 dark:border-slate-800 rounded-xl">
-                      <span className="text-xxs uppercase tracking-wider text-slate-400 font-bold">Sum appointments</span>
+                      <span className="text-xxs uppercase tracking-wider text-slate-400 font-bold">
+                        Total Physicians
+                      </span>
                       <h4 className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
-                        {adminReportData.data.reduce((sum, item) => sum + item.totalAppointments, 0)}
+                        {adminReportData.data.length}
                       </h4>
                     </div>
                     <div className="p-4 bg-slate-500/5 border border-slate-200 dark:border-slate-800 rounded-xl">
-                      <span className="text-xxs uppercase tracking-wider text-slate-400 font-bold">Total Sales ($)</span>
+                      <span className="text-xxs uppercase tracking-wider text-slate-400 font-bold">
+                        Sum appointments
+                      </span>
+                      <h4 className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
+                        {adminReportData.data.reduce(
+                          (sum, item) => sum + item.totalAppointments,
+                          0,
+                        )}
+                      </h4>
+                    </div>
+                    <div className="p-4 bg-slate-500/5 border border-slate-200 dark:border-slate-800 rounded-xl">
+                      <span className="text-xxs uppercase tracking-wider text-slate-400 font-bold">
+                        Total Sales ($)
+                      </span>
                       <h4 className="text-2xl font-black text-teal-600 dark:text-teal-400 mt-1">
-                        ${adminReportData.data.reduce((sum, item) => sum + item.revenue, 0)}
+                        $
+                        {adminReportData.data.reduce(
+                          (sum, item) => sum + item.revenue,
+                          0,
+                        )}
                       </h4>
                     </div>
                   </div>
 
-                  {/* Table representation */}
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-sm text-left">
                       <thead>
@@ -1065,17 +1219,29 @@ export default function Dashboard() {
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {adminReportData.data.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-500/5 transition-colors">
+                          <tr
+                            key={item.id}
+                            className="hover:bg-slate-500/5 transition-colors"
+                          >
                             <td className="py-3.5 font-bold text-slate-800 dark:text-slate-200">
                               {item.name}
-                              <span className="block text-xxs text-teal-600 dark:text-teal-400 font-semibold uppercase mt-0.5">{item.specialization}</span>
+                              <span className="block text-xxs text-teal-600 dark:text-teal-400 font-semibold uppercase mt-0.5">
+                                {item.specialization}
+                              </span>
                             </td>
-                            <td className="py-3.5 text-slate-500 dark:text-slate-400">{item.department}</td>
+                            <td className="py-3.5 text-slate-500 dark:text-slate-400">
+                              {item.department}
+                            </td>
                             <td className="py-3.5 text-center text-slate-500 dark:text-slate-400">
-                              {item.completedAppointments} Completed / {item.totalAppointments} Total
+                              {item.completedAppointments} Completed /{" "}
+                              {item.totalAppointments} Total
                             </td>
-                            <td className="py-3.5 text-center font-bold text-slate-800 dark:text-slate-200">{item.todayQueueSize} in queue</td>
-                            <td className="py-3.5 text-right font-bold text-teal-600 dark:text-teal-400">${item.revenue}</td>
+                            <td className="py-3.5 text-center font-bold text-slate-800 dark:text-slate-200">
+                              {item.todayQueueSize} in queue
+                            </td>
+                            <td className="py-3.5 text-right font-bold text-teal-600 dark:text-teal-400">
+                              ${item.revenue}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1087,10 +1253,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ==============================================================
-            TAB: PHYSICIAN REGISTRY (ADMIN ROLE - SQL INJECTION VULNERABILITY)
-            ============================================================== */}
-        {activeTab === 'physicians' && (
+        {/* TAB: PHYSICIAN REGISTRY */}
+        {activeTab === "physicians" && (
           <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md space-y-6">
             <div>
               <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -1098,7 +1262,8 @@ export default function Dashboard() {
                 Staff Physicians Registry Lookup
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-1">
-                Database lookup for credentials. Uses a raw SQL interpolation backend query.
+                Database lookup for credentials. Uses a raw SQL interpolation
+                backend query.
               </p>
             </div>
 
@@ -1111,7 +1276,7 @@ export default function Dashboard() {
                   type="text"
                   value={adminSearchQuery}
                   onChange={(e) => setAdminSearchQuery(e.target.value)}
-                  placeholder="Enter physician name search criteria (raw syntax supported)..."
+                  placeholder="Enter physician name search..."
                   className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                 />
               </div>
@@ -1124,37 +1289,37 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <div className="p-3 bg-rose-500/10 text-rose-500 text-xs rounded-lg border border-rose-500/20 font-semibold leading-5 flex gap-3">
-              <ShieldAlert className="h-5 w-5 shrink-0" />
-              <div>
-                <strong>SQL Vulnerability alert:</strong> This search executes raw interpolation: 
-                <code className="block bg-black/10 dark:bg-black/30 p-1.5 rounded mt-1 font-mono">
-                  SELECT * FROM &quot;Doctor&quot; WHERE name ILIKE &apos;%&#123;query&#125;%&apos;
-                </code>
-                Can be audited by inputting standard SQL injection strings to leak full user login lists.
-              </div>
-            </div>
-
-            {/* Doctors Result List */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {doctorsList.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-500/5 flex flex-col justify-between"
-                >
-                  <div>
-                    <span className="inline-flex px-2 py-0.5 rounded text-xxs font-extrabold tracking-wide uppercase bg-teal-500/10 text-teal-600 dark:text-teal-400 mb-2">
-                      {doc.department}
-                    </span>
-                    <h4 className="font-extrabold text-slate-800 dark:text-slate-100">{doc.name}</h4>
-                    <p className="text-xs text-slate-400 mt-0.5">{doc.specialization}</p>
+              {Array.isArray(doctorsList) && doctorsList.length > 0 ? (
+                doctorsList.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-500/5 flex flex-col justify-between"
+                  >
+                    <div>
+                      <span className="inline-flex px-2 py-0.5 rounded text-xxs font-extrabold tracking-wide uppercase bg-teal-500/10 text-teal-600 dark:text-teal-400 mb-2">
+                        {doc.department}
+                      </span>
+                      <h4 className="font-extrabold text-slate-800 dark:text-slate-100">
+                        {doc.name}
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {doc.specialization}
+                      </p>
+                    </div>
+                    <div className="mt-6 pt-3 border-t border-slate-200 dark:border-slate-800/80 flex justify-between items-center text-xs font-semibold text-slate-500">
+                      <span>Exp: {doc.experience} yrs</span>
+                      <span className="font-bold text-teal-600 dark:text-teal-400">
+                        Fee: ${doc.consultationFee}
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-6 pt-3 border-t border-slate-200 dark:border-slate-800/80 flex justify-between items-center text-xs font-semibold text-slate-500">
-                    <span>Exp: {doc.experience} yrs</span>
-                    <span className="font-bold text-teal-600 dark:text-teal-400">Fee: ${doc.consultationFee}</span>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-slate-400 text-xs italic col-span-full text-center py-4">
+                  No physicians loaded or matching current registry parameters.
+                </p>
+              )}
             </div>
           </div>
         )}
