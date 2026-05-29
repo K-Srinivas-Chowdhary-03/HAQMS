@@ -6,6 +6,20 @@ const path = require("path");
 // Load environment variables relative to the backend directory
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
+// Programmatically run database migrations and seeding on boot
+const { execSync } = require("child_process");
+try {
+  console.log("===================================================");
+  console.log("⚙️  [BOOT] Starting automatic database migration...");
+  execSync("npx prisma migrate deploy", { stdio: "inherit", cwd: path.join(__dirname, "..") });
+  console.log("⚙️  [BOOT] Running database seeding...");
+  execSync("node prisma/seed.js", { stdio: "inherit", cwd: path.join(__dirname, "..") });
+  console.log("⚙️  [BOOT] Database is ready and up to date!");
+  console.log("===================================================");
+} catch (error) {
+  console.error("❌ [BOOT-ERROR] Failed to migrate or seed database on startup:", error);
+}
+
 const authRoutes = require("./routes/auth");
 const patientRoutes = require("./routes/patients");
 const doctorRoutes = require("./routes/doctors");
