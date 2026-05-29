@@ -8,8 +8,10 @@
     "dev": "nodemon src/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:prod": "prisma migrate deploy",
     "prisma:seed": "node prisma/seed.js",
-    "db:setup": "prisma migrate dev && node prisma/seed.js"
+    "db:setup": "prisma migrate dev && node prisma/seed.js",
+    "db:setup:prod": "prisma migrate deploy && node prisma/seed.js"
   },
   "dependencies": {
     "@prisma/client": "^5.14.0",
@@ -17,6 +19,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "haqms-workspace": "file:..",
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {

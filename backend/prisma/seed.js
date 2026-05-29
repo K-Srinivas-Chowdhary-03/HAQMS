@@ -6,6 +6,13 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Seeding HAQMS database...");
 
+  // Check if users already exist to prevent duplicate seeding and crashes in production
+  const userCount = await prisma.user.count();
+  if (userCount > 0) {
+    console.log("⚠️ Database already has seeded users. Skipping seeding.");
+    return;
+  }
+
   // ─── Users ────────────────────────────────────────────────────────────────
   const hashedPassword = await bcrypt.hash("password123", 10);
 

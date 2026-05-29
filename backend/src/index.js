@@ -1,9 +1,10 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const path = require("path");
 
-// Load environment variables
-dotenv.config();
+// Load environment variables relative to the backend directory
+dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const authRoutes = require("./routes/auth");
 const patientRoutes = require("./routes/patients");
@@ -15,9 +16,35 @@ const reportRoutes = require("./routes/reports");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// 🔥 FIX: Restricted CORS configuration to prevent unauthorized origins from abusing the API
+// 🔥 FIX: Dynamic CORS configuration allowing localhost and common live environments
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5000",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5000"
+];
+
+if (process.env.FRONTEND_URL) {
+  const envOrigins = process.env.FRONTEND_URL.split(",").map(o => o.trim());
+  allowedOrigins.push(...envOrigins);
+}
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    const isAllowed = allowedOrigins.some(allowed => {
+      return allowed === "*" || allowed.toLowerCase() === origin.toLowerCase() || origin.endsWith(".onrender.com") || origin.endsWith(".vercel.app");
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS Blocked] Request from origin: ${origin} not in allowed list.`);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
