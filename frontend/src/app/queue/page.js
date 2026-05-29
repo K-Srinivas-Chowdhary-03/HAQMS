@@ -10,7 +10,8 @@ export default function QueueMonitor() {
   const [error, setError] = useState("");
   const [refreshCount, setRefreshCount] = useState(0);
 
-  const API_BASE_URL = "http://localhost:5000/api";
+  // Use environment variables for the API base URL with a local fallback
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
   const fetchQueueData = async () => {
     try {
